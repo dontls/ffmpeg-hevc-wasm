@@ -26,7 +26,7 @@ FFMPEG_FLAGS=(
   --disable-avdevice
   --disable-swresample
   --disable-swscale
-  --disable-postproc
+  # --disable-postproc
   --disable-avformat
   --disable-avfilter
   --disable-everything

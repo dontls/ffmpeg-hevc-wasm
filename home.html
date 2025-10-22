@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mozilla Firefox</title>
+</head>
+
+<body>
+
+  <div>
+    <button id="onimai">Play Onimai PV (1920x1080, yuv420p, 24fps)</button>
+    <button id="av170001">Play Av170001 (512x288, yuv420p, 15fps)</button>
+  </div>
+
+  <p id="fps"></p>
+
+  <canvas id="canvas"></canvas>
+
+  <script type="module">
+    var initialized = false;
+
+    const worker = new Worker(new URL("./worker.js", import.meta.url), {
+      type: "module",
+    });
+
+    const fps = document.getElementById("fps");
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    worker.addEventListener("message", (message) => {
+      // console.log("main:", message.data);
+
+      if (message.data.type === "initialize") {
+        initialized = true;
+      }
+
+      if (message.data.type === "fps") {
+        fps.textContent = message.data.message;
+        fps.style.color = message.data.color || "black";
+      }
+    });
+
+
+    function playVideo(url, width, height, fps) {
+      if (!initialized) {
+        alert("HEVC Decoder not initialized");
+        return;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      worker.postMessage({ type: "decode", url, width, height, fps });
+      document.querySelectorAll("button").forEach((button) => button.remove());
+
+      const frames = [];
+      let interval;
+
+      worker.addEventListener('message', (message) => {
+        if (message.data.type === 'frame') {
+          frames.push(message.data.frame);
+        }
+        if (message.data.type === 'end') {
+          clearInterval(interval);
+        }
+        if (message.data.type === 'ready') {
+          interval = setInterval(() => {
+            if (frames.length > 0) {
+              const frame = frames.shift();
+              ctx.drawImage(frame, 0, 0);
+              frame.close();
+            }
+            worker.postMessage({ type: 'frame' });
+          }, 1000 / fps)
+          worker.postMessage({ type: 'frame' });
+          worker.postMessage({ type: 'frame' });
+          worker.postMessage({ type: 'frame' });
+        }
+      });
+
+    }
+
+    document.getElementById("onimai").addEventListener("click", () => {
+      playVideo(new URL("./video/onimai.hevc", import.meta.url).href, 1920, 1080, 23.98);
+    });
+
+    document.getElementById("av170001").addEventListener("click", () => {
+      playVideo(new URL("./video/av170001.hevc", import.meta.url).href, 512, 288, 15);
+    });
+  </script>
+</body>
+
+</html>

@@ -1,33 +1,7 @@
 import decoder from "./build/video_decode.js";
 
-function currentTimeStr() {
-  var now = new Date(Date.now());
-  var year = now.getFullYear();
-  var month = now.getMonth() + 1;
-  var day = now.getDate();
-  var hour = now.getHours();
-  var min = now.getMinutes();
-  var sec = now.getSeconds();
-  var ms = now.getMilliseconds();
-  return (
-    year +
-    "-" +
-    month +
-    "-" +
-    day +
-    " " +
-    hour +
-    ":" +
-    min +
-    ":" +
-    sec +
-    ":" +
-    ms
-  );
-}
-
 function logDebug(line) {
-  console.log(currentTimeStr() + " " + line);
+  console.log(line);
 }
 
 let _Module; // 存储解码模块实例

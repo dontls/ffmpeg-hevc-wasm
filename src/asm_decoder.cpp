@@ -1,19 +1,9 @@
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef unsigned long long u64;
-typedef unsigned short u16;
-
-#include "libavcodec/avcodec.h"
+#include "asm_decoder.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-typedef void (*CallVideo)(uint8_t* buff, int width, int height, double ts);
-typedef void (*CallAudio)(uint8_t* buff, int size);
 
 // 媒体数据头
 #pragma pack(4)
@@ -24,29 +14,8 @@ struct MediaHeader_t {
 };
 #pragma pack()
 
-class AsmDecoder {
- private:
-  AVCodecContext* vCtx_ = nullptr;
-  AVFrame* vframe_ = nullptr;
-  AVPacket* vpkt_ = nullptr;
-
- private:
-  uint8_t* yuvData_ = nullptr;
-  bool bWaitKey_;
-  CallVideo vcall_;
-  CallAudio acall_;
-
- public:
-  AsmDecoder(long onVideo, long onAudio);
-  ~AsmDecoder();
-  int OpenVDecoder(uint8_t* b);
-  int WriteFrame(uint8_t* buf, int len);
-};
-
-AsmDecoder::AsmDecoder(long onVideo, long onAudio) : bWaitKey_(true) {
-  vcall_ = (CallVideo)onVideo;
-  acall_ = (CallAudio)onAudio;
-}
+AsmDecoder::AsmDecoder(VideoCallback onVideo, AudioCallback onAudio)
+    : _onVideo(onVideo), _onAudio(onAudio), bWaitKey_(true) {}
 
 AsmDecoder::~AsmDecoder() {
   if (vCtx_) {
@@ -121,8 +90,8 @@ int AsmDecoder::WriteFrame(uint8_t* frame, int len) {
     memcpy(yuvData_ + y_size, vframe_->data[1], uv_size);            // U
     memcpy(yuvData_ + y_size + uv_size, vframe_->data[2], uv_size);  // V
     // // 解码数据回调
-    this->vcall_(yuvData_, vCtx_->width, vCtx_->height,
-                 double(h->timestamp / 1000));
+    this->_onVideo(yuvData_, vCtx_->width, vCtx_->height,
+                   double(h->timestamp / 1000));
     // printf("retcode %d length %d, w %d, h %d\n", retCode, len, vCtx_->width,
     //        vCtx_->height);
   }
@@ -130,15 +99,40 @@ int AsmDecoder::WriteFrame(uint8_t* frame, int len) {
   return retCode;
 }
 
-AsmDecoder* _decoder = nullptr;
+// ============================================================
+// 全局解码器实例
+// ============================================================
+static AsmDecoder* _decoder = nullptr;
+
+// ============================================================
+// 从 Go 宿主环境导入的回调函数 (由 wazero 注入)
+// ============================================================
+extern "C" {
+// 视频回调: (buff, width, height, timestamp)
+extern void __wasm_call_onVideo(uint8_t* buff, int width, int height, double ts);
+// 音频回调: (buff, size)
+extern void __wasm_call_onAudio(uint8_t* buff, int size);
+
+// ============================================================
+// 导出到 Wasm 的 C 接口
+// ============================================================
 
 AsmDecoder* jsNewDecoder(long onVideo, long onAudio) {
-  _decoder = new AsmDecoder(onVideo, onAudio);
+  _decoder = new AsmDecoder((VideoCallback)onVideo, (AudioCallback)onAudio);
+  return _decoder;
+}
+
+AsmDecoder* jsInitDecoder() {
+  _decoder = new AsmDecoder(
+      [](uint8_t* buff, int w, int h, double ts) {
+        __wasm_call_onVideo(buff, w, h, ts);
+      },
+      [](uint8_t* buff, int size) { __wasm_call_onAudio(buff, size); });
   return _decoder;
 }
 
 int jsDecodec(uint8_t* frame, int len) {
-  if (NULL == _decoder) {
+  if (nullptr == _decoder) {
     return -1;
   }
   return _decoder->WriteFrame(frame, len);
@@ -147,10 +141,8 @@ int jsDecodec(uint8_t* frame, int len) {
 void jsReleaseDecoder() {
   if (_decoder) {
     delete _decoder;
-    _decoder = NULL;
+    _decoder = nullptr;
   }
 }
 
-#ifdef __cplusplus
-}
-#endif
+}  // extern "C"

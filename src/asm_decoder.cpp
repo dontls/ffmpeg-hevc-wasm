@@ -108,19 +108,12 @@ static AsmDecoder* _decoder = nullptr;
 // 从 Go 宿主环境导入的回调函数 (由 wazero 注入)
 // ============================================================
 extern "C" {
+  
+#if GO_WASM
 // 视频回调: (buff, width, height, timestamp)
 extern void __wasm_call_onVideo(uint8_t* buff, int width, int height, double ts);
 // 音频回调: (buff, size)
 extern void __wasm_call_onAudio(uint8_t* buff, int size);
-
-// ============================================================
-// 导出到 Wasm 的 C 接口
-// ============================================================
-
-AsmDecoder* jsNewDecoder(long onVideo, long onAudio) {
-  _decoder = new AsmDecoder((VideoCallback)onVideo, (AudioCallback)onAudio);
-  return _decoder;
-}
 
 AsmDecoder* jsInitDecoder() {
   _decoder = new AsmDecoder(
@@ -128,6 +121,16 @@ AsmDecoder* jsInitDecoder() {
         __wasm_call_onVideo(buff, w, h, ts);
       },
       [](uint8_t* buff, int size) { __wasm_call_onAudio(buff, size); });
+  return _decoder;
+}
+#endif
+
+// ============================================================
+// 导出到 Wasm 的 C 接口
+// ============================================================
+
+AsmDecoder* jsNewDecoder(long onVideo, long onAudio) {
+  _decoder = new AsmDecoder((VideoCallback)onVideo, (AudioCallback)onAudio);
   return _decoder;
 }
 

@@ -21,7 +21,10 @@ decoder().then((Module) => {
     postMessage({ type: "frame", frame: videoFrame, w: w, h: h, ts: ts });
   };
   _onVideo = Module.addFunction(postFrame, "vpiid");
-  _onAudio = Module.addFunction(function (buff, size, ts) {}, "vpiid");
+  _onAudio = Module.addFunction(function (buff, size) {
+    const audioData = Module.HEAPU8.slice(buff, buff + size);
+    postMessage({ type: "pcm16", frame: audioData.buffer, sampleRate: 8000, channels: 1, bitsPerSample: 16 }, [audioData.buffer]);
+  }, "vpi");
   logDebug("_jsNewDecoder " + Module._jsNewDecoder(_onVideo, _onAudio));
   _Buffer = Module._malloc(1048576);
   onmessage = (ev) => {

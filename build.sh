@@ -6,7 +6,6 @@ LIB_TARGET="$PWD/asm-lib"
 
 export EXPORTED_FUNCTIONS="[ \
   '_jsNewDecoder', \
-  '_jsInitDecoder', \
   '_jsDecodec', \
   '_jsReleaseDecoder', \
   '_malloc'
@@ -53,6 +52,8 @@ FFMPEG_FLAGS=(
   --extra-cxxflags="-msimd128"
 )
 
+source ../emsdk/emsdk_env.sh
+
 case $1 in
   ffmpeg)
     mkdir "$LIB_TARGET"
@@ -68,6 +69,7 @@ case $1 in
       asm-lib/lib/libavutil.a \
       -O3 \
       -I"asm-lib/include" \
+      -DGO_WASM=1 \
       -fno-threadsafe-statics \
       -s WASM=1 \
       -s STANDALONE_WASM=1 \
@@ -78,6 +80,7 @@ case $1 in
       -o gowasm/asm_decode.wasm
     ;;
   *)
+    rm out/*
     emcc src/asm_decoder.cpp \
       asm-lib/lib/libavcodec.a \
       asm-lib/lib/libavutil.a \
@@ -95,7 +98,7 @@ case $1 in
       -s RESERVED_FUNCTION_POINTERS=14 \
       -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
       -msimd128 \
-      -o build/video_decode.js
+      -o out/video_decode.js
     ;;  
 esac
 

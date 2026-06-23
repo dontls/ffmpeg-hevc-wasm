@@ -82,6 +82,7 @@ case $1 in
   *)
     rm out/*
     emcc src/asm_decoder.cpp \
+      src/g726.cpp \
       asm-lib/lib/libavcodec.a \
       asm-lib/lib/libavutil.a \
       -O3 \

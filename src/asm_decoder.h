@@ -4,18 +4,20 @@
 extern "C" {
 #include "libavcodec/avcodec.h"
 }
+#include "g726.h"
 
 typedef unsigned long long u64;
 typedef unsigned short u16;
 
 typedef void (*VideoCallback)(uint8_t* buff, int width, int height, double ts);
-typedef void (*AudioCallback)(uint8_t* buff, int size);
+typedef void (*AudioCallback)(uint8_t* buff, int size, double ts);
 
 class AsmDecoder {
  private:
   AVCodecContext* vCtx_ = nullptr;
   AVFrame* vframe_ = nullptr;
   AVPacket* vpkt_ = nullptr;
+  g726_state_t* g726_ = nullptr;
 
  private:
   uint8_t* yuvData_ = nullptr;

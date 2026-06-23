@@ -1,46 +1,385 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mozilla Firefox</title>
-  </head>
+<html lang="zh-CN">
 
-  <body>
-    <div>
-      <button id="play">▶ 播放</button>
-      <label
-        >倍速
-        <select id="rateSel">
-          <option value="-16">-16x</option>
-          <option value="-8">-8x</option>
-          <option value="-4">-4x</option>
-          <option value="-2">-2x</option>
-          <option value="-1">-1x</option>
-          <option value="-0.5">-0.5x</option>
-          <option value="0.5">0.5x</option>
-          <option value="1" selected>1x</option>
-          <option value="2">2x</option>
-          <option value="4">4x</option>
-          <option value="8">8x</option>
-          <option value="16">16x</option>
-        </select>
-      </label>
-    </div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebSocket 视频播放器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eef1f4;
+      --panel: #ffffff;
+      --panel-border: #d9dee5;
+      --text: #18212d;
+      --muted: #657080;
+      --accent: #166b5b;
+      --accent-hover: #105245;
+      --danger: #b42318;
+      --danger-hover: #8f1d14;
+      --warning: #a15c00;
+      --info: #185b88;
+      --video-bg: #090b0f;
+      --shadow: 0 18px 45px rgba(20, 30, 45, 0.12);
+    }
 
-    <canvas id="canvas"></canvas>
-    <script type="module">
-      import VideoStream from "./video-stream.js"; // 确保路径正确
-      const video = new VideoStream("canvas");
-      document.getElementById("play").addEventListener("click", () => {
-        video.open(
-          "ws://localhost:8787/replay?st=2025-09-09 14:20:00&et=2025-09-09 23:59:59&chl=1"
-        );
-      });
-      document.getElementById("rateSel").addEventListener("change", (r) => {
-        const rate = parseFloat(event.target.value);
-        video.setRate(rate);
-      });
-    </script>
-  </body>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      max-height: 100vh;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+      gap: 20px;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .sidebar,
+    .stage {
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .status {
+      min-width: 82px;
+      padding: 7px 10px;
+      border: 1px solid var(--panel-border);
+      border-radius: 999px;
+      color: var(--muted);
+      background: #f7f9fb;
+      font-size: 13px;
+      line-height: 1;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .status.connected {
+      color: var(--accent);
+      border-color: rgba(22, 107, 91, 0.3);
+      background: rgba(22, 107, 91, 0.08);
+    }
+
+    .status.error {
+      color: var(--danger);
+      border-color: rgba(180, 35, 24, 0.32);
+      background: rgba(180, 35, 24, 0.08);
+    }
+
+    .status.pending {
+      color: var(--warning);
+      border-color: rgba(161, 92, 0, 0.32);
+      background: rgba(161, 92, 0, 0.08);
+    }
+
+    .form-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid #cbd3dc;
+      border-radius: 6px;
+      color: var(--text);
+      background: #fbfcfd;
+      outline: none;
+      transition: border-color 0.16s, box-shadow 0.16s, background-color 0.16s;
+    }
+
+    input {
+      height: 40px;
+      padding: 0 11px;
+    }
+
+    textarea {
+      min-height: 400px;
+      max-height: 46vh;
+      padding: 11px;
+      resize: vertical;
+      line-height: 1.45;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(22, 107, 91, 0.14);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button {
+      height: 40px;
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #ffffff;
+      font-weight: 700;
+      transition: background-color 0.16s, opacity 0.16s;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+    }
+
+    .primary {
+      background: var(--accent);
+    }
+
+    .primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .danger {
+      background: var(--danger);
+    }
+
+    .danger:hover:not(:disabled) {
+      background: var(--danger-hover);
+    }
+
+    .send {
+      width: 100%;
+      background: var(--info);
+    }
+
+    .send:hover:not(:disabled) {
+      background: #12476d;
+    }
+
+    .log {
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      color: var(--muted);
+      background: #f7f9fb;
+      font-size: 13px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .stage {
+      display: grid;
+      min-width: 0;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000000;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>WebSocket 视频播放器</h1>
+        <div class="status" id="status">未连接</div>
+      </div>
+
+      <section class="form-section" aria-label="WebSocket 连接">
+        <div class="field">
+          <label for="wsUrl">WS 地址</label>
+          <input type="text" id="wsUrl" value="ws://172.16.50.122:33122/stream" autocomplete="off">
+        </div>
+
+        <div class="button-row">
+          <button class="primary" id="connectBtn" type="button">连接</button>
+          <button class="danger" id="disconnectBtn" type="button" disabled>断开</button>
+        </div>
+      </section>
+
+      <section class="form-section" aria-label="发送数据">
+        <div class="field">
+          <label for="commandInput">发送数据</label>
+          <textarea id="commandInput" spellcheck="false">
+{
+  "action": "3000",
+  "payload": {
+    "sessionID": 1782215278013,
+    "deviceID": "20198002",
+    "channel": "1",
+    "stream": 0,
+    "bufferTimeMs": 2000,
+    "username": "admin",
+    "bussType": "1"
+  }
+}</textarea>
+        </div>
+
+        <button class="send" id="sendBtn" type="button" disabled>发送</button>
+      </section>
+    </aside>
+
+    <section class="stage" aria-label="视频显示">
+      <canvas id="canvas"></canvas>
+    </section>
+  </main>
+
+  <script type="module">
+    import VideoStream from "./video-stream.js";
+
+    const video = new VideoStream("canvas");
+    const wsUrlInput = document.getElementById("wsUrl");
+    const connectBtn = document.getElementById("connectBtn");
+    const disconnectBtn = document.getElementById("disconnectBtn");
+    const statusDiv = document.getElementById("status");
+    const commandInput = document.getElementById("commandInput");
+    const sendBtn = document.getElementById("sendBtn");
+
+    let isConnected = false;
+    let connectionTimer = null;
+
+    function setStatus(text, state = "idle") {
+      statusDiv.textContent = text;
+      statusDiv.className = `status ${state === "idle" ? "" : state}`.trim();
+    }
+
+    function setConnected(connected) {
+      isConnected = connected;
+      connectBtn.disabled = connected;
+      disconnectBtn.disabled = !connected;
+      sendBtn.disabled = !connected;
+      setStatus(connected ? "已连接" : "未连接", connected ? "connected" : "idle");
+    }
+
+    function clearConnectionTimer() {
+      if (connectionTimer) {
+        clearTimeout(connectionTimer);
+        connectionTimer = null;
+      }
+    }
+
+    video.onOpen = () => {
+      clearConnectionTimer();
+      setConnected(true);
+    };
+
+    video.onClose = () => {
+      clearConnectionTimer();
+      setConnected(false);
+    };
+
+    video.onError = () => {
+      clearConnectionTimer();
+      setConnected(false);
+      setStatus("连接错误", "error");
+    };
+
+    connectBtn.addEventListener("click", () => {
+      const wsUrl = wsUrlInput.value.trim();
+      if (!wsUrl) {
+        setStatus("请输入 WS 地址", "error");
+        wsUrlInput.focus();
+        return;
+      }
+
+      connectBtn.disabled = true;
+      setStatus("连接中", "pending");
+      video.open(wsUrl);
+
+      clearConnectionTimer();
+      connectionTimer = setTimeout(() => {
+        if (!isConnected) {
+          connectBtn.disabled = false;
+          setStatus("连接超时", "error");
+        }
+      }, 5000);
+    });
+
+    disconnectBtn.addEventListener("click", () => {
+      video.close();
+      setConnected(false);
+    });
+
+    sendBtn.addEventListener("click", () => {
+      const command = commandInput.value.trim();
+      if (!command) {
+        setStatus("发送数据为空", "error");
+        return;
+      }
+
+      try {
+        const jsonCommand = JSON.parse(command);
+        const sent = video.sendCommand(jsonCommand);
+        if (sent) {
+          setStatus("数据已发送", "connected");
+        } else {
+          setStatus("WebSocket 未连接", "error");
+          setConnected(false);
+        }
+      } catch (error) {
+        setStatus(`JSON 格式错误: ${error.message}`, "error");
+      }
+    });
+  </script>
+</body>
+
 </html>

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cstddef>
+#include "g726.h"
 
 // 媒体数据头
 #pragma pack(4)
@@ -52,6 +54,7 @@ int AsmDecoder::OpenVDecoder(uint8_t* b) {
   if (avcodec_open2(vCtx_, pDecoder, NULL) < 0) {
     return -2;
   }
+  g726_ = g726_init(NULL, 40000, G726_ENCODING_LINEAR, G726_PACKING_RIGHT);
   vframe_ = av_frame_alloc();
   vpkt_ = av_packet_alloc();
   bWaitKey_ = false;
@@ -71,6 +74,7 @@ int AsmDecoder::WriteFrame(uint8_t* frame, int len) {
       return retCode;
     }
   }
+  double ts = double(h->timestamp) / 1000;
   if (h->frame < 3) {
     vpkt_->data = data;
     vpkt_->size = len - 12;
@@ -90,10 +94,14 @@ int AsmDecoder::WriteFrame(uint8_t* frame, int len) {
     memcpy(yuvData_ + y_size, vframe_->data[1], uv_size);            // U
     memcpy(yuvData_ + y_size + uv_size, vframe_->data[2], uv_size);  // V
     // // 解码数据回调
-    this->_onVideo(yuvData_, vCtx_->width, vCtx_->height,
-                   double(h->timestamp / 1000));
+    this->_onVideo(yuvData_, vCtx_->width, vCtx_->height, ts);
     // printf("retcode %d length %d, w %d, h %d\n", retCode, len, vCtx_->width,
     //        vCtx_->height);
+  }
+  if (h->frame == 3) {
+    uint8_t ampbuffer[1024] = {};
+    int amplen = g726_decode(g726_, (int16_t*)ampbuffer, data + 4, len - 16);
+    this->_onAudio(ampbuffer, amplen * sizeof(int16_t), ts);
   }
   // g726 decode
   return retCode;
@@ -108,10 +116,11 @@ static AsmDecoder* _decoder = nullptr;
 // 从 Go 宿主环境导入的回调函数 (由 wazero 注入)
 // ============================================================
 extern "C" {
-  
+
 #if GO_WASM
 // 视频回调: (buff, width, height, timestamp)
-extern void __wasm_call_onVideo(uint8_t* buff, int width, int height, double ts);
+extern void __wasm_call_onVideo(uint8_t* buff, int width, int height,
+                                double ts);
 // 音频回调: (buff, size)
 extern void __wasm_call_onAudio(uint8_t* buff, int size);
 

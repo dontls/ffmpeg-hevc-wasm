@@ -81,7 +81,7 @@ case $1 in
     ;;
   *)
     rm out/*
-    emcc src/asm_decoder.cpp \
+    emcc src/asm_codec.cpp \
       src/g726.cpp \
       asm-lib/lib/libavcodec.a \
       asm-lib/lib/libavutil.a \
@@ -99,7 +99,7 @@ case $1 in
       -s RESERVED_FUNCTION_POINTERS=14 \
       -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
       -msimd128 \
-      -o out/video_decode.js
+      -o out/asm_codec.js
     ;;  
 esac
 

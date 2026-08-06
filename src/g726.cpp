@@ -743,7 +743,16 @@ static int16_t g726_16_decoder(g726_state_t *s, uint8_t code)
     case G726_ENCODING_ULAW:
         return tandem_adjust_ulaw(sr, se, y, code, 2, qtab_726_16, 4);
     }
-    return (sr << 2);
+    /* Clip to 16-bit signed range to avoid wrap-around pops when the
+       internal 14-bit signal overflows (mirrors ffmpeg's av_clip). */
+    {
+        int sl = ((int) sr) << 2;
+        if (sl > 32767)
+            sl = 32767;
+        else if (sl < -32768)
+            sl = -32768;
+        return (int16_t) sl;
+    }
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -821,7 +830,16 @@ static int16_t g726_24_decoder(g726_state_t *s, uint8_t code)
     case G726_ENCODING_ULAW:
         return tandem_adjust_ulaw(sr, se, y, code, 4, qtab_726_24, 7);
     }
-    return (sr << 2);
+    /* Clip to 16-bit signed range to avoid wrap-around pops when the
+       internal 14-bit signal overflows (mirrors ffmpeg's av_clip). */
+    {
+        int sl = ((int) sr) << 2;
+        if (sl > 32767)
+            sl = 32767;
+        else if (sl < -32768)
+            sl = -32768;
+        return (int16_t) sl;
+    }
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -899,7 +917,16 @@ static int16_t g726_32_decoder(g726_state_t *s, uint8_t code)
     case G726_ENCODING_ULAW:
         return tandem_adjust_ulaw(sr, se, y, code, 8, qtab_726_32, 15);
     }
-    return (sr << 2);
+    /* Clip to 16-bit signed range to avoid wrap-around pops when the
+       internal 14-bit signal overflows (mirrors ffmpeg's av_clip). */
+    {
+        int sl = ((int) sr) << 2;
+        if (sl > 32767)
+            sl = 32767;
+        else if (sl < -32768)
+            sl = -32768;
+        return (int16_t) sl;
+    }
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -978,7 +1005,16 @@ static int16_t g726_40_decoder(g726_state_t *s, uint8_t code)
     case G726_ENCODING_ULAW:
         return tandem_adjust_ulaw(sr, se, y, code, 0x10, qtab_726_40, 31);
     }
-    return (sr << 2);
+    /* Clip to 16-bit signed range to avoid wrap-around pops when the
+       internal 14-bit signal overflows (mirrors ffmpeg's av_clip). */
+    {
+        int sl = ((int) sr) << 2;
+        if (sl > 32767)
+            sl = 32767;
+        else if (sl < -32768)
+            sl = -32768;
+        return (int16_t) sl;
+    }
 }
 /*- End of function --------------------------------------------------------*/
 

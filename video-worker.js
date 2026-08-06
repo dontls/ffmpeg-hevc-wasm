@@ -1,4 +1,4 @@
-import decoder from "./out/video_decode.js";
+import decoder from "./out/asm_codec.js";
 
 function logDebug(line) {
   console.log(line);

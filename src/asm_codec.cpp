@@ -1,5 +1,5 @@
 
-#include "asm_decoder.h"
+#include "asm_codec.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,13 +97,12 @@ int AsmDecoder::WriteFrame(uint8_t* frame, int len) {
     this->_onVideo(yuvData_, vCtx_->width, vCtx_->height, ts);
     // printf("retcode %d length %d, w %d, h %d\n", retCode, len, vCtx_->width,
     //        vCtx_->height);
-  }
-  if (h->frame == 3) {
+  } else if (h->frame == 3) {
+    // g726 decode
     uint8_t ampbuffer[1024] = {};
     int amplen = g726_decode(g726_, (int16_t*)ampbuffer, data + 4, len - 16);
     this->_onAudio(ampbuffer, amplen * sizeof(int16_t), ts);
   }
-  // g726 decode
   return retCode;
 }
 

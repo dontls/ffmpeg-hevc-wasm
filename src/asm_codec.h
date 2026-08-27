@@ -16,7 +16,6 @@ class AsmDecoder {
  private:
   AVCodecContext* vCtx_ = nullptr;
   AVFrame* vframe_ = nullptr;
-  AVPacket* vpkt_ = nullptr;
   g726_state_t* g726_ = nullptr;
 
  private:

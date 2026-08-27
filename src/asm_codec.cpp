@@ -33,10 +33,6 @@ AsmDecoder::~AsmDecoder() {
     delete[] yuvData_;
     yuvData_ = NULL;
   }
-  if (vpkt_) {
-    av_packet_free(&vpkt_);
-    vpkt_ = NULL;
-  }
 }
 
 int AsmDecoder::OpenVDecoder(uint8_t* b) {
@@ -56,7 +52,7 @@ int AsmDecoder::OpenVDecoder(uint8_t* b) {
   }
   g726_ = g726_init(NULL, 40000, G726_ENCODING_LINEAR, G726_PACKING_RIGHT);
   vframe_ = av_frame_alloc();
-  vpkt_ = av_packet_alloc();
+
   bWaitKey_ = false;
   return 0;
 }
@@ -76,13 +72,16 @@ int AsmDecoder::WriteFrame(uint8_t* frame, int len) {
   }
   double ts = double(h->timestamp) / 1000;
   if (h->frame < 3) {
-    vpkt_->data = data;
-    vpkt_->size = len - 12;
-    int ret = avcodec_send_packet(vCtx_, vpkt_);
+    AVPacket* pkt = av_packet_alloc();
+    pkt->data = data;
+    pkt->size = len - 12;
+    int ret = avcodec_send_packet(vCtx_, pkt);
     if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+      av_packet_free(&pkt);
       return ret;
     }
     if ((ret = avcodec_receive_frame(vCtx_, vframe_)) < 0) {
+      av_packet_free(&pkt);
       return ret;
     }
     size_t y_size = vCtx_->width * vCtx_->height;
@@ -97,6 +96,7 @@ int AsmDecoder::WriteFrame(uint8_t* frame, int len) {
     this->_onVideo(yuvData_, vCtx_->width, vCtx_->height, ts);
     // printf("retcode %d length %d, w %d, h %d\n", retCode, len, vCtx_->width,
     //        vCtx_->height);
+    av_packet_free(&pkt);
   } else if (h->frame == 3) {
     // g726 decode
     uint8_t ampbuffer[1024] = {};

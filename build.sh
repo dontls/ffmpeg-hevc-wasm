@@ -8,7 +8,8 @@ export EXPORTED_FUNCTIONS="[ \
   '_jsNewDecoder', \
   '_jsDecodec', \
   '_jsReleaseDecoder', \
-  '_malloc'
+  '_malloc', \
+  '_free'
 ]"
 
 FFMPEG_FLAGS=(
@@ -80,7 +81,7 @@ case $1 in
       -o gowasm/asm_decode.wasm
     ;;
   *)
-    rm out/*
+    rm -rf out/*
     emcc src/asm_codec.cpp \
       src/g726.cpp \
       asm-lib/lib/libavcodec.a \
@@ -90,7 +91,8 @@ case $1 in
       -s WASM=1 \
       -s MODULARIZE \
       -s ENVIRONMENT="worker" \
-      -s MAXIMUM_MEMORY=16777216 \
+      -s INITIAL_MEMORY=33554432 \
+      -s MAXIMUM_MEMORY=268435456 \
       -s ALLOW_MEMORY_GROWTH=1 \
       -s EXPORT_ES6=1 \
       -s EXPORTED_RUNTIME_METHODS=ccall,cwrap \
